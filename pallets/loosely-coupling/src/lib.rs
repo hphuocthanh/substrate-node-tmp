@@ -19,6 +19,7 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::{pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
+    use pallet_template::DoSome;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -29,6 +30,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type IncreaseValue: DoSome;
 	}
 
 	// The pallet's runtime storage items.
@@ -53,6 +55,7 @@ pub mod pallet {
 		/// parameters. [something, who]
 		SomethingStored(u32, T::AccountId),
         NumberRemoved(T::AccountId),
+        IncreaseValue(u32),
 	}
 
 	// Errors inform users that something went wrong.
@@ -69,92 +72,19 @@ pub mod pallet {
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// An example dispatchable that takes a singles value as a parameter, writes the value to
-		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
+		pub fn increase_value(origin: OriginFor<T>, something: u32) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/main-docs/build/origins/
 			let who = ensure_signed(origin)?;
 
-			// Update storage.
-			<Something<T>>::put(something);
-
+			let res = T::IncreaseValue::increase_value(something);
 			// Emit an event.
-			Self::deposit_event(Event::SomethingStored(something, who));
+			Self::deposit_event(Event::IncreaseValue(res));
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
-		}
-
-        #[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn put_number(origin: OriginFor<T>, number: u32) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/main-docs/build/origins/
-			let who = ensure_signed(origin)?;
-
-			// Update storage.
-			<Number<T>>::insert(who.clone(), number);
-
-			// Emit an event.
-			Self::deposit_event(Event::SomethingStored(number, who));
-			// Return a successful DispatchResultWithPostInfo
-			Ok(())
-		}
-
-        #[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn remove_number(origin: OriginFor<T>) -> DispatchResult {
-
-			let who = ensure_signed(origin)?;
-
-			<Number<T>>::remove(who.clone());
-
-			// Emit an event.
-			Self::deposit_event(Event::NumberRemoved(who));
-			// Return a successful DispatchResultWithPostInfo
-			Ok(())
-		}
-
-		/// An example dispatchable that may throw a custom error.
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
-		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-
-			// Read a value from storage.
-			match <Something<T>>::get() {
-				// Return an error if the value has not been set.
-				None => return Err(Error::<T>::NoneValue.into()),
-				Some(old) => {
-					// Increment the value read from storage; will error in the event of overflow.
-					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
-					// Update the value in storage with the incremented result.
-					<Something<T>>::put(new);
-					Ok(())
-				},
-			}
 		}
 	}
 }
 
-// helper fn
-impl<T:Config> Pallet<T> {
-    pub fn update_storage(new_value: u32) -> DispatchResult {
-        Something::<T>::put(new_value);
-
-        Ok(())
-    }
-}
-
-pub trait DoSome {
-
-	fn increase_value(value: u32) -> u32;
-}
-
-
-impl<T> DoSome for Pallet<T> {
-	fn increase_value(value: u32) -> u32 {
-		value + 5
-
-	}
-}
